@@ -1,9 +1,0 @@
-[package]
-name = "raycaster"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-sdl2 = "0.35"
-rand = "0.8"
-image = "0.23"
