@@ -1,149 +1,220 @@
-extern crate nalgebra as na;
-extern crate nalgebra_glm as glm;
-extern crate minifb;
-use std::cmp::{min, max};
 use minifb::{Key, Window, WindowOptions};
-use glm::Vec3;
-use std::error::Error;
+use std::f64::consts::PI;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use image::GenericImageView;
 
-mod framebuffer;
-mod player;
-mod raycaster;
-mod input;
+const WIDTH: usize = 840;
+const HEIGHT: usize = 580;
 
-use framebuffer::Framebuffer;
-use player::Player;
-use raycaster::cast_ray;
-use input::process_events;
-
-const CELL_SIZE: usize = 20;
-const FOV: f32 = std::f32::consts::PI / 3.0;
-
-fn render_top_down(framebuffer: &mut Framebuffer, maze: &[Vec<char>], player: &Player, cell_size: usize) {
-    framebuffer.clear();
-    render_maze(framebuffer, maze, cell_size);
-    render_player(framebuffer, player, cell_size);
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
 }
 
-fn render_first_person(framebuffer: &mut Framebuffer, maze: &[Vec<char>], player: &Player) {
-    framebuffer.clear();
-    framebuffer::Framebuffer::render_fov(framebuffer, maze, player);
+fn color_lerp(color1: u32, color2: u32, t: f64) -> u32 {
+    let r1 = (color1 >> 16) & 0xFF;
+    let g1 = (color1 >> 8) & 0xFF;
+    let b1 = color1 & 0xFF;
+
+    let r2 = (color2 >> 16) & 0xFF;
+    let g2 = (color2 >> 8) & 0xFF;
+    let b2 = color2 & 0xFF;
+
+    let r = lerp(r1 as f64, r2 as f64, t) as u32;
+    let g = lerp(g1 as f64, g2 as f64, t) as u32;
+    let b = lerp(b1 as f64, b2 as f64, t) as u32;
+
+    (r << 16) | (g << 8) | b
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-    let (maze, player_position) = load_maze("maze.txt")?;
-    let cell_size = 50;  // Example value, adjust as needed
-    let width = maze[0].len() * cell_size;
-    let height = maze.len() * cell_size;
+struct Player {
+    x: f64,
+    y: f64,
+    angle: f64,
+}
 
-    let mut framebuffer = Framebuffer::new(width, height);
-    framebuffer.clear();
-
-    let mut player = Player::new(player_position.1 as f32, player_position.0 as f32, FOV); // Example FOV value, adjust as needed
-
+fn main() {
+    let mut buffer: Vec<u32> = vec![0; WIDTH * HEIGHT];
     let mut window = Window::new(
-        "Maze",
-        width,
-        height,
-        WindowOptions {
-            scale: minifb::Scale::X2,
-            ..WindowOptions::default()
-        },
-    )?;
+        "Ray Caster",
+        WIDTH,
+        HEIGHT,
+        WindowOptions::default(),
+    )
+    .unwrap_or_else(|e| {
+        panic!("{}", e);
+    });
 
-    let mut top_down_view = true;
+    let map = load_map("assets/maze.txt");
+   let texture = load_texture("assets/walltexture.jpg");
+    let (mut player, map_width, map_height) = find_player(&map);
+
+    let mut view_mode = 0; // 0 for 3D, 1 for 2D
 
     while window.is_open() && !window.is_key_down(Key::Escape) {
-        process_events(&window, &mut player, &maze);
-
+        if window.is_key_down(Key::A) {
+            player.angle -= 0.05;
+        }
+        if window.is_key_down(Key::D) {
+            player.angle += 0.05;
+        }
+        if window.is_key_down(Key::W) {
+            let new_x = player.x + player.angle.cos() * 0.05;
+            let new_y = player.y + player.angle.sin() * 0.05;
+            if !is_wall(&map, new_x, new_y) {
+                player.x = new_x;
+                player.y = new_y;
+            }
+        }
+        if window.is_key_down(Key::S) {
+            let new_x = player.x - player.angle.cos() * 0.05;
+            let new_y = player.y - player.angle.sin() * 0.05;
+            if !is_wall(&map, new_x, new_y) {
+                player.x = new_x;
+                player.y = new_y;
+            }
+        }
         if window.is_key_pressed(Key::Tab, minifb::KeyRepeat::No) {
-            top_down_view = !top_down_view;
+            view_mode = 1 - view_mode;
         }
 
-        if top_down_view {
-            render_top_down(&mut framebuffer, &maze, &player, cell_size);
+        if view_mode == 0 {
+            render_3d(&mut buffer, &map, &player, &texture, map_width, map_height);
         } else {
-            render_first_person(&mut framebuffer, &maze, &player);
+            render_2d(&mut buffer, &map, &player, map_width, map_height);
         }
 
-        window.update_with_buffer(&framebuffer.pixels, width, height)?;
+        window
+            .update_with_buffer(&buffer, WIDTH, HEIGHT)
+            .unwrap();
     }
-
-    Ok(())
 }
 
-fn load_maze(filename: &str) -> Result<(Vec<Vec<char>>, (usize, usize)), Box<dyn Error>> {
-    let file = File::open(filename)?;
+fn load_map(filename: &str) -> Vec<Vec<char>> {
+    let file = File::open(filename).expect("Failed to open map file");
     let reader = BufReader::new(file);
-    let mut player_position = (0, 0);
-    let maze: Vec<Vec<char>> = reader
-        .lines()
-        .enumerate()
-        .map(|(row, line)| {
-            let line_chars: Vec<char> = line.unwrap().chars().collect();
-            if let Some(col) = line_chars.iter().position(|&c| c == 'p') {
-                player_position = (row, col);
-            }
-            line_chars
-        })
-        .collect();
-    Ok((maze, player_position))
+    reader.lines().map(|line| line.unwrap().chars().collect()).collect()
 }
 
-fn render_maze(framebuffer: &mut Framebuffer, maze: &[Vec<char>], cell_size: usize) {
-    for (row, line) in maze.iter().enumerate() {
-        for (col, &cell) in line.iter().enumerate() {
-            let color = match cell {
-                '+' | '-' | '|' => 0xFF000000, // Black for walls
-                'p' => 0xFF00FF00,              // Green for player
-                'g' => 0xFFFF0000,              // Red for goal
-                _ => 0xFFFFFFFF,                // White for empty space
-            };
+fn load_texture(filename: &str) -> Vec<u32> {
+    let img = image::open(filename).expect("Failed to load texture");
+    let (width, height) = img.dimensions();
+    img.to_rgba8().pixels().map(|p| {
+        let [r, g, b, a] = p.0;
+        ((a as u32) << 24) | ((r as u32) << 16) | ((g as u32) << 8) | (b as u32)
+    }).collect()
+}
 
-            for dx in 0..cell_size {
-                for dy in 0..cell_size {
-                    framebuffer.point(col * cell_size + dx, row * cell_size + dy, color);
-                }
+fn find_player(map: &Vec<Vec<char>>) -> (Player, usize, usize) {
+    let height = map.len();
+    let width = map[0].len();
+    for (y, row) in map.iter().enumerate() {
+        for (x, &cell) in row.iter().enumerate() {
+            if cell == 'p' {
+                return (
+                    Player {
+                        x: x as f64 + 0.5,
+                        y: y as f64 + 0.5,
+                        angle: 0.0,
+                    },
+                    width,
+                    height,
+                );
+            }
+        }
+    }
+    panic!("Player not found in map");
+}
+
+fn is_wall(map: &Vec<Vec<char>>, x: f64, y: f64) -> bool {
+    let map_x = x as usize;
+    let map_y = y as usize;
+    map[map_y][map_x] == '+' || map[map_y][map_x] == '-' || map[map_y][map_x] == '|'
+}
+
+fn render_2d(buffer: &mut Vec<u32>, map: &Vec<Vec<char>>, player: &Player, map_width: usize, map_height: usize) {
+    for (i, pixel) in buffer.iter_mut().enumerate() {
+        let x = i % WIDTH;
+        let y = i / WIDTH;
+        let map_x = x * map_width / WIDTH;
+        let map_y = y * map_height / HEIGHT;
+
+        *pixel = match map[map_y][map_x] {
+            ' ' => 0xF6F5F2,
+            '+' | '-' | '|' => 0x0d798f,
+            'g' => 0xFF0000,
+            _ => 0x000000,
+        };
+    }
+
+    let player_screen_x = (player.x * WIDTH as f64 / map_width as f64) as usize;
+    let player_screen_y = (player.y * HEIGHT as f64 / map_height as f64) as usize;
+    for dy in -2..=2 {
+        for dx in -2..=2 {
+            let px = player_screen_x as i32 + dx;
+            let py = player_screen_y as i32 + dy;
+            if px >= 0 && px < WIDTH as i32 && py >= 0 && py < HEIGHT as i32 {
+                buffer[py as usize * WIDTH + px as usize] = 0x500CFF;
             }
         }
     }
 }
 
-fn render_player(framebuffer: &mut Framebuffer, player: &Player, cell_size: usize) {
-    let x = (player.x as usize) * cell_size;
-    let y = (player.y as usize) * cell_size;
-    for dx in 0..cell_size {
-        for dy in 0..cell_size {
-            framebuffer.point(x + dx, y + dy, 0xFF00FF00);
-        }
-    }
-}
+fn render_3d(buffer: &mut Vec<u32>, map: &Vec<Vec<char>>, player: &Player, texture: &Vec<u32>, map_width: usize, map_height: usize) {
+    let sky_top = 0x87CEEB;     // Azul claro
+    let sky_bottom = 0xf8eaf7;  // Muy claro
 
-pub fn render_3D(framebuffer: &mut Framebuffer, maze: &[Vec<char>], player: &Player) {
-    let num_rays = framebuffer.width;
+    for x in 0..WIDTH {
+        let ray_angle = player.angle - PI / 6.0 + (x as f64 / WIDTH as f64) * PI / 3.0;
+        let (distance, wall_x) = cast_ray(map, player, ray_angle);
 
-    let hw = framebuffer.width as f32 / 2.0; // precalculated half width
-    let hh = framebuffer.height as f32 / 2.0; // precalculated half height
-    framebuffer.set_background_color(0x0c0b38);
-    framebuffer.set_foreground_color(0xebdc7f);
+        let wall_height = (HEIGHT as f64 / distance) as usize;
+        let wall_top = (HEIGHT / 2).saturating_sub(wall_height / 2);
+        let wall_bottom = (HEIGHT / 2 + wall_height / 2).min(HEIGHT);
 
-    for i in 0..num_rays {
-        let current_ray = i as f32 / num_rays as f32; // current ray divided by total rays
-        let a = player.angle - (player.fov / 2.0) + (player.fov * current_ray);
-        let intersect = cast_ray(maze, player.x, player.y, a);
+        let texture_x = (wall_x * 64.0) as usize & 63;
 
-        let stake_height = framebuffer.height as f32 / intersect.distance;
-        let stake_top = (hh - (stake_height / 2.0)).max(0.0) as usize;
-        let stake_bottom = (hh + (stake_height / 2.0)).min(framebuffer.height as f32) as usize;
-
-        for y in stake_top..stake_bottom {
-            if i < framebuffer.width as usize && y < framebuffer.height as usize {
-                framebuffer.point(i, y, 0xebdc7f);
+        for y in 0..HEIGHT {
+            let pixel_index = y * WIDTH + x;
+            if y < wall_top {
+                // Cielo con degradado
+                let t = y as f64 / wall_top as f64;
+                buffer[pixel_index] = color_lerp(sky_top, sky_bottom, t);
+            } else if y >= wall_top && y < wall_bottom {
+                let texture_y = (y - wall_top) * 64 / wall_height;
+                buffer[pixel_index] = texture[texture_y * 64 + texture_x];
             } else {
-                println!("Point out of bounds: i = {}, y = {}", i, y);
+                // Suelo con nuevos tonos
+                let t = (y - wall_bottom) as f64 / (HEIGHT - wall_bottom) as f64;
+                buffer[pixel_index] = color_lerp(0x0d798f, 0x4f0955, t);  // De un azul oscuro a un azul más claro
             }
+        }
+    }
+}
+
+
+fn cast_ray(map: &Vec<Vec<char>>, player: &Player, angle: f64) -> (f64, f64) {
+    let mut x = player.x;
+    let mut y = player.y;
+    let step_size = 0.01;
+    let dx = angle.cos() * step_size;
+    let dy = angle.sin() * step_size;
+
+    loop {
+        x += dx;
+        y += dy;
+
+        let map_x = x as usize;
+        let map_y = y as usize;
+
+        if map_x >= map[0].len() || map_y >= map.len() {
+            return (f64::MAX, 0.0);
+        }
+
+        if is_wall(map, x, y) {
+            let distance = ((x - player.x).powi(2) + (y - player.y).powi(2)).sqrt();
+            let wall_x = x - x.floor(); // Used for texture mapping
+            return (distance, wall_x);
         }
     }
 }
