@@ -26,11 +26,11 @@ fn main() {
 
     window.set_cursor_visibility(false);
 
-    let mut map = Map::load("assets/maze.txt");
+    let map = Map::load("assets/maze.txt");
     let mut player = Player::new(&map);
-    let mut renderer = Renderer::new(WIDTH, HEIGHT);
-    let mut audio = AudioManager::new();
-    let mut ui = UI::new();
+    let renderer = Renderer::new(WIDTH, HEIGHT);
+    let audio = AudioManager::new();
+    let ui = UI::new();
 
     audio.play_background_music("assets/nobodynocrimets.mp3");
 
