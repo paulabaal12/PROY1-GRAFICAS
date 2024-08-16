@@ -46,34 +46,26 @@ impl Renderer {
     fn lerp(&self, a: f64, b: f64, t: f64) -> f64 {
         a + (b - a) * t
     }
-
     fn sample_texture(&self, u: f64, v: f64) -> u32 {
         let img_width = self.img_width;
         let img_height = self.img_height;
-
-        // Mapeo de coordenadas (u, v) al tamaño de la imagen
-        let x = u * img_width as f64;
-        let y = v * img_height as f64;
-
-        // Coordenadas de los píxeles vecinos
-        let x1 = x.floor() as usize % img_width;
-        let y1 = y.floor() as usize % img_height;
-        let x2 = (x1 + 1) % img_width;
-        let y2 = (y1 + 1) % img_height;
-
-        // Factores de interpolación
-        let tx = x - x.floor();
-        let ty = y - y.floor();
-
-        // Muestreo bilineal
-        let c11 = self.texture[y1 * img_width + x1];
-        let c21 = self.texture[y1 * img_width + x2];
-        let c12 = self.texture[y2 * img_width + x1];
-        let c22 = self.texture[y2 * img_width + x2];
-
+        
+        let x = (u * img_width as f64).clamp(0.0, (img_width - 1) as f64) as usize;
+        let y = (v * img_height as f64).clamp(0.0, (img_height - 1) as f64) as usize;
+        let x1 = (x + 1).min(img_width - 1);
+        let y1 = (y + 1).min(img_height - 1);
+        
+        let tx = u * img_width as f64 - x as f64;
+        let ty = v * img_height as f64 - y as f64;
+        
+        let c11 = self.texture[y * img_width + x];
+        let c21 = self.texture[y * img_width + x1];
+        let c12 = self.texture[y1 * img_width + x];
+        let c22 = self.texture[y1 * img_width + x1];
+        
         self.bilinear_interpolation(c11, c21, c12, c22, tx, ty)
     }
-
+    
     fn bilinear_interpolation(&self, c11: u32, c21: u32, c12: u32, c22: u32, tx: f64, ty: f64) -> u32 {
         let r = self.lerp(
             self.lerp(((c11 >> 16) & 0xFF) as f64, ((c21 >> 16) & 0xFF) as f64, tx),
@@ -96,39 +88,42 @@ impl Renderer {
 
     pub fn render_3d(&self, map: &Map, player: &Player) -> Vec<u32> {
         let mut buffer = vec![0; self.width * self.height];
-        let sky_top = 0x87CEEB;
-        let sky_bottom = 0xf8eaf7;
-
+        let sky_top = 0x20586d;
+        let sky_bottom = 0x9ea2ac;
+    
         for x in 0..self.width {
             let ray_angle = player.angle - PI / 6.0 + (x as f64 / self.width as f64) * PI / 3.0;
             let (distance, wall_x) = self.cast_ray(map, player, ray_angle);
-
+    
             let wall_height = (self.height as f64 / distance) as usize;
             let wall_top = (self.height / 2).saturating_sub(wall_height / 2);
             let wall_bottom = (self.height / 2 + wall_height / 2).min(self.height);
-
-            let texture_u = wall_x;
+    
+            let texture_u = wall_x; // Aquí wall_x es una coordenada en [0, 1]
             let texture_step = 1.0 / wall_height as f64;
             let mut texture_v = 0.0;
-
+    
             for y in 0..self.height {
                 let pixel_index = y * self.width + x;
                 if y < wall_top {
                     let t = y as f64 / wall_top as f64;
                     buffer[pixel_index] = self.color_lerp(sky_top, sky_bottom, t);
                 } else if y >= wall_top && y < wall_bottom {
-                    let color = self.sample_texture(texture_u, texture_v);
+                    let v = (y as f64 - wall_top as f64) / (wall_bottom as f64 - wall_top as f64);
+                    let color = self.sample_texture(texture_u, v);
                     let shade_factor = 1.0 / (1.0 + distance * distance * 0.1);
                     buffer[pixel_index] = self.apply_shade(color, shade_factor);
                     texture_v += texture_step;
                 } else {
                     let t = (y - wall_bottom) as f64 / (self.height - wall_bottom) as f64;
-                    buffer[pixel_index] = self.color_lerp(0x0d798f, 0x4f0955, t);
+                    buffer[pixel_index] = self.color_lerp(0x0d798f, 0x051744, t);
                 }
             }
         }
         buffer
     }
+    
+    
 
     fn apply_shade(&self, color: u32, factor: f64) -> u32 {
         let r = ((color >> 16) & 0xFF) as f64 * factor;
