@@ -1,49 +1,41 @@
-use minifb::{Window, Key};
+use minifb::Window;
 use image::RgbaImage;
-use std::time::Duration;
 
 pub struct UI {
     welcome_image: RgbaImage,
     victory_image: RgbaImage,
+    game_over_image: RgbaImage,
 }
 
 impl UI {
     pub fn new() -> Self {
         let welcome_image = image::open("assets/welcome.png").unwrap().to_rgba8();
         let victory_image = image::open("assets/victory.png").unwrap().to_rgba8();
-        UI { welcome_image, victory_image }
+        let game_over_image = image::open("assets/gameover.png").unwrap().to_rgba8();
+        UI { welcome_image, victory_image, game_over_image }
     }
 
     pub fn show_welcome_screen(&self, window: &mut Window) {
-        let (width, height) = window.get_size();
-        let mut buffer = vec![0; width * height];
-        
-        // Redimensionar la imagen para que se ajuste al tamaño de la ventana
-        let resized_image = image::imageops::resize(&self.welcome_image, width as u32, height as u32, image::imageops::FilterType::Nearest);
-
-        self.draw_image(&mut buffer, width, &resized_image);
-        
-        window.update_with_buffer(&buffer, width, height).unwrap();
-
-        loop {
-            window.update();
-            if window.is_key_down(Key::Space) {
-                break;
-            }
-        }
+        self.show_image(window, &self.welcome_image);
     }
 
     pub fn show_victory_screen(&self, window: &mut Window) {
+        self.show_image(window, &self.victory_image);
+    }
+
+    pub fn show_game_over_screen(&self, window: &mut Window) {
+        self.show_image(window, &self.game_over_image);
+    }
+
+    fn show_image(&self, window: &mut Window, image: &RgbaImage) {
         let (width, height) = window.get_size();
         let mut buffer = vec![0; width * height];
         
-        let resized_image = image::imageops::resize(&self.victory_image, width as u32, height as u32, image::imageops::FilterType::Nearest);
+        let resized_image = image::imageops::resize(image, width as u32, height as u32, image::imageops::FilterType::Nearest);
 
         self.draw_image(&mut buffer, width, &resized_image);
         
         window.update_with_buffer(&buffer, width, height).unwrap();
-
-        std::thread::sleep(Duration::from_secs(3));
     }
 
     pub fn render_fps(&self, fps: u32, buffer: &mut Vec<u32>, width: usize) {

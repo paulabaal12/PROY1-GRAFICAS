@@ -36,6 +36,18 @@ impl Map {
         panic!("Player start position not found in map");
     }
 
+
+    pub fn find_enemy_start(&self) -> (f64, f64) {
+        for (y, row) in self.data.iter().enumerate() {
+            for (x, &cell) in row.iter().enumerate() {
+                if cell == 'E' {
+                    return (x as f64 + 0.5, y as f64 + 0.5);
+                }
+            }
+        }
+        panic!("Enemy start position not found in map");
+    }
+
     pub fn is_player_at_goal(&self, player: &crate::player::Player) -> bool {
         let map_x = player.x as usize;
         let map_y = player.y as usize;

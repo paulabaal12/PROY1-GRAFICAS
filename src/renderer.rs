@@ -2,6 +2,7 @@ use image::GenericImageView;
 use crate::map::Map;
 use crate::player::Player;
 use std::f64::consts::PI;
+use crate::enemy::Enemy;
 
 pub struct Renderer {
     width: usize,
@@ -151,7 +152,8 @@ impl Renderer {
         }
     }
 
-    pub fn render_minimap(&self, map: &Map, player: &crate::player::Player, buffer: &mut Vec<u32>) {
+    
+    pub fn render_minimap(&self, map: &Map, player: &Player, enemy: &Enemy, buffer: &mut Vec<u32>) {
         let minimap_size = 140;
         let scale = minimap_size as f64 / map.width() as f64;
 
@@ -173,6 +175,7 @@ impl Renderer {
             }
         }
 
+        // Dibujar el jugador
         let player_x = (player.x * scale) as usize;
         let player_y = (player.y * scale) as usize;
 
@@ -184,8 +187,20 @@ impl Renderer {
                 }
             }
         }
-    }
 
+        // Dibujar el enemigo
+        let enemy_x = (enemy.x * scale) as usize;
+        let enemy_y = (enemy.y * scale) as usize;
+
+        for dy in 0..3 {
+            for dx in 0..3 {
+                let pixel_index = ((enemy_y + dy) * self.width + (enemy_x + dx)) as usize;
+                if pixel_index < buffer.len() {
+                    buffer[pixel_index] = 0x00FF00; // Color verde para el enemigo
+                }
+            }
+        }
+    }
     fn color_lerp(&self, start: u32, end: u32, t: f64) -> u32 {
         let r1 = (start >> 16) & 0xFF;
         let g1 = (start >> 8) & 0xFF;
