@@ -26,5 +26,23 @@ impl AudioManager {
         let file = BufReader::new(File::open("assets/footsteps.mp3").unwrap());
         let source = Decoder::new(file).unwrap();
         self.sink.append(source);
+        self.sink.set_volume(0.5);
+        self.sink.play();
+    }
+
+    pub fn play_victory(&self) {
+        let file = BufReader::new(File::open("assets/victory.mp3").unwrap());
+        let source = Decoder::new(file).unwrap();
+        self.sink.append(source);
+        self.sink.set_volume(0.5);
+        self.sink.play();
+    }
+
+    pub fn play_game_over(&self) {
+        let file = BufReader::new(File::open("assets/gameover.mp3").unwrap());
+        let source = Decoder::new(file).unwrap();
+        self.sink.append(source);
+        self.sink.set_volume(0.5);
+        self.sink.play();
     }
 }

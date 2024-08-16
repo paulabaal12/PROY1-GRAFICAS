@@ -39,6 +39,7 @@ fn main() {
         }
     }
 }
+
 pub struct GameState {
     map: Map,
     player: Player,
@@ -112,7 +113,7 @@ impl GameState {
 
     fn handle_input(&mut self, window: &mut Window, dt: f64) {
         let mut moved = false;
-
+    
         if window.is_key_down(Key::W) {
             self.player.move_forward(&self.map);
             moved = true;
@@ -129,23 +130,24 @@ impl GameState {
             self.player.strafe_right(&self.map);
             moved = true;
         }
-
+    
         // Mouse rotation
         if let Some((x, _)) = window.get_mouse_pos(minifb::MouseMode::Discard) {
             let center_x = (WIDTH / 2) as f64;
             let dx = x as f64 - center_x;
             self.player.rotate_by_mouse(dx);
         }
-
+    
         self.player.update(dt);
-
-        let frame_start = Instant::now();
-        if moved && frame_start.duration_since(self.last_step_time) >= Duration::from_millis(500) {
+    
+        // Play footstep sound
+        let now = Instant::now();
+        if moved && now.duration_since(self.last_step_time) >= Duration::from_millis(500) {
             self.audio.play_footstep();
-            self.last_step_time = frame_start;
+            self.last_step_time = now;
         }
     }
-
+    
     fn update(&mut self, dt: f64) {
         self.enemy.update(&self.map, &self.player, dt);
     }
@@ -154,6 +156,7 @@ impl GameState {
         let mut buffer = self.renderer.render_3d(&self.map, &self.player);
         self.renderer.render_minimap(&self.map, &self.player, &self.enemy, &mut buffer);
 
+        // Render the enemy
         self.enemy.render(window, &mut buffer, WIDTH, HEIGHT);
 
         self.ui.render_fps(self.fps, &mut buffer, WIDTH);
@@ -186,3 +189,4 @@ impl GameState {
         self.current_state = State::Playing;
     }
 }
+
