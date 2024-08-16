@@ -12,7 +12,7 @@ pub struct Enemy {
 
 impl Enemy {
     pub fn new(map: &Map) -> Self {
-        let (x, y) = map.find_enemy_start(); // Asegúrate de que esta posición esté en una parte visible del mapa.
+        let (x, y) = map.find_enemy_start();
         let texture = image::open("assets/enemy.png").unwrap();
         let speed = 0.1;
     
@@ -41,7 +41,7 @@ impl Enemy {
     
     pub fn has_caught_player(&self, player: &Player) -> bool {
         let distance = ((self.x - player.x).powi(2) + (self.y - player.y).powi(2)).sqrt();
-        distance < 0.5 // Ajusta este valor según el tamaño del jugador y enemigo.
+        distance < 0.8
     }
 
     pub fn render(&self, window: &mut Window, buffer: &mut Vec<u32>, width: usize, height: usize) {

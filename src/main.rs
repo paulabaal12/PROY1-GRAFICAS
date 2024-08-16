@@ -139,7 +139,6 @@ impl GameState {
 
         self.player.update(dt);
 
-        // Play footstep sound
         let frame_start = Instant::now();
         if moved && frame_start.duration_since(self.last_step_time) >= Duration::from_millis(500) {
             self.audio.play_footstep();
@@ -155,7 +154,6 @@ impl GameState {
         let mut buffer = self.renderer.render_3d(&self.map, &self.player);
         self.renderer.render_minimap(&self.map, &self.player, &self.enemy, &mut buffer);
 
-        // Renderiza la imagen del enemigo
         self.enemy.render(window, &mut buffer, WIDTH, HEIGHT);
 
         self.ui.render_fps(self.fps, &mut buffer, WIDTH);

@@ -187,8 +187,7 @@ impl Renderer {
                 }
             }
         }
-
-        // Dibujar el enemigo
+        
         let enemy_x = (enemy.x * scale) as usize;
         let enemy_y = (enemy.y * scale) as usize;
 
