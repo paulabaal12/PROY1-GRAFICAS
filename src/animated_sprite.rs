@@ -13,8 +13,8 @@ impl AnimatedSprite {
     pub fn new(path: &str, frame_count: usize, frame_duration: Duration) -> Result<Self, String> {
         let mut frames = Vec::with_capacity(frame_count);
         for i in 0..frame_count {
-            let file_path = format!("{}_{}.png", path, i); // Ajusta esto si es necesario
-            println!("Attempting to open: {}", file_path); // Añade esto para depurar
+            let file_path = format!("{}_{}.png", path, i); 
+            println!("Attempting to open: {}", file_path); 
             if !fs::metadata(&file_path).is_ok() {
                 return Err(format!("File not found: {}", file_path));
             }

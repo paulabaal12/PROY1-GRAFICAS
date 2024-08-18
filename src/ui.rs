@@ -76,7 +76,7 @@ impl UI {
 
     fn draw_text(&self, buffer: &mut Vec<u32>, width: usize, text: &str, x: usize, y: usize, color: u32) {
         for (i, c) in text.chars().enumerate() {
-            self.draw_char(buffer, width, c, x + i * 8, y, color, 0);  // Usamos 0 como color de fondo (transparente)
+            self.draw_char(buffer, width, c, x + i * 8, y, color, 0); 
         }
     }
 }

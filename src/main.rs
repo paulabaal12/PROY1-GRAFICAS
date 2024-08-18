@@ -99,7 +99,6 @@ impl GameState {
         let now = Instant::now();
         if (window.is_key_down(Key::W) || window.is_key_down(Key::S) || window.is_key_down(Key::A) || window.is_key_down(Key::D)) 
             && now.duration_since(self.last_step_time) >= Duration::from_millis(500) {
-            self.audio.play_footstep();
             self.last_step_time = now;
         }
     }
@@ -157,7 +156,6 @@ impl GameState {
         }
     }
 
-
     fn show_victory_screen(&mut self, window: &mut Window) {
         self.ui.show_victory_screen(window);
         if !self.victory_sound_played {
@@ -166,9 +164,10 @@ impl GameState {
         }
         if window.is_key_down(Key::Space) {
             self.reset_game();
+            self.audio.play_background_music("assets/nobodynocrimets.mp3"); 
         }
     }
-
+    
     fn show_game_over_screen(&mut self, window: &mut Window) {
         self.ui.show_game_over_screen(window);
         if !self.game_over_sound_played {
@@ -177,8 +176,10 @@ impl GameState {
         }
         if window.is_key_down(Key::Space) {
             self.reset_game();
+            self.audio.play_background_music("assets/nobodynocrimets.mp3"); 
         }
     }
+    
 
     fn reset_game(&mut self) {
         self.player = Player::new(&self.map);
@@ -186,14 +187,16 @@ impl GameState {
         self.current_state = State::Playing;
         self.victory_sound_played = false;
         self.game_over_sound_played = false;
+        self.audio.play_background_music("assets/nobodynocrimets.mp3"); 
     }
+    
 }
 
 fn main() {
     let frame_duration = Duration::from_secs_f64(1.0 / TARGET_FPS as f64);
 
     let mut window = Window::new(
-        "Ray Caster",
+        "No body, no crime",
         WIDTH,
         HEIGHT,
         WindowOptions::default(),

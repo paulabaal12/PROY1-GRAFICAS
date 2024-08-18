@@ -16,7 +16,7 @@ impl AudioManager {
     }
 
     pub fn play_background_music(&self, file_path: &str) {
-        self.sink.stop(); // Stop any currently playing audio
+        self.sink.stop(); 
         let file = BufReader::new(File::open(file_path).unwrap());
         let source = Decoder::new(file).unwrap();
         self.sink.append(source);
@@ -24,17 +24,8 @@ impl AudioManager {
         self.sink.play();
     }
 
-    pub fn play_footstep(&self) {
-        let file = BufReader::new(File::open("assets/footsteps.mp3").unwrap());
-        let source = Decoder::new(file).unwrap();
-        let footstep_sink = Sink::try_new(&self.stream_handle).unwrap();
-        footstep_sink.append(source);
-        footstep_sink.set_volume(0.5);
-        footstep_sink.play();
-    }
-
     pub fn play_victory(&self) {
-        self.sink.stop(); // Stop any currently playing audio
+        self.sink.stop(); 
         let file = BufReader::new(File::open("assets/victory.mp3").unwrap());
         let source = Decoder::new(file).unwrap();
         self.sink.append(source);
@@ -44,7 +35,7 @@ impl AudioManager {
 
     pub fn play_game_over(&self) {
         self.sink.stop(); 
-        let file = BufReader::new(File::open("assets/gameover.mp3").unwrap());
+        let file = BufReader::new(File::open("assets/gameover1.mp3").unwrap());
         let source = Decoder::new(file).unwrap();
         self.sink.append(source);
         self.sink.set_volume(0.5);
