@@ -5,8 +5,8 @@ use std::f64::consts::PI;
 use crate::enemy::Enemy;
 
 pub struct Renderer {
-    width: usize,
-    height: usize,
+    pub width: usize,
+    pub height: usize,
     texture: Vec<u32>,
     img_width: usize,
     img_height: usize,
@@ -175,7 +175,6 @@ impl Renderer {
             }
         }
 
-        // Dibujar el jugador
         let player_x = (player.x * scale) as usize;
         let player_y = (player.y * scale) as usize;
 

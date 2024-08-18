@@ -30,6 +30,7 @@ fn main() {
 
     let mut game_state = GameState::new();
 
+    
     while window.is_open() && !window.is_key_down(Key::Escape) {
         match game_state.current_state {
             State::Welcome => game_state.show_welcome_screen(&mut window),
@@ -37,6 +38,7 @@ fn main() {
             State::Victory => game_state.show_victory_screen(&mut window),
             State::GameOver => game_state.show_game_over_screen(&mut window),
         }
+        window.update();
     }
 }
 
@@ -52,6 +54,8 @@ pub struct GameState {
     fps_counter: u32,
     fps: u32,
     last_step_time: Instant,
+    victory_sound_played: bool,
+    game_over_sound_played: bool,
 }
 
 enum State {
@@ -82,111 +86,118 @@ impl GameState {
             fps_counter: 0,
             fps: 0,
             last_step_time: Instant::now(),
+            victory_sound_played: false,
+            game_over_sound_played: false,
+        }
+    }
+
+  
+    fn handle_input(&mut self, window: &mut Window, dt: f64) {
+        let move_speed = 2.0 * dt; // Ajusta este valor para cambiar la velocidad de movimiento
+        let rotation_speed = 2.0 * dt; // Ajusta este valor para cambiar la velocidad de rotación
+    
+        if window.is_key_down(Key::W) {
+            self.player.move_forward(&self.map, move_speed);
+        }
+        if window.is_key_down(Key::S) {
+            self.player.move_backward(&self.map, move_speed);
+        }
+        if window.is_key_down(Key::A) {
+            self.player.strafe_left(&self.map, move_speed);
+        }
+        if window.is_key_down(Key::D) {
+            self.player.strafe_right(&self.map, move_speed);
+        }
+    
+        if let Some((x, _)) = window.get_mouse_pos(minifb::MouseMode::Discard) {
+            let center_x = (self.renderer.width / 2) as f64;
+            let dx = x as f64 - center_x;
+            self.player.rotate(dx * rotation_speed);
+        }
+    
+        self.player.update(dt);
+    
+        let now = Instant::now();
+        if (window.is_key_down(Key::W) || window.is_key_down(Key::S) || window.is_key_down(Key::A) || window.is_key_down(Key::D)) 
+            && now.duration_since(self.last_step_time) >= Duration::from_millis(500) {
+            self.audio.play_footstep();
+            self.last_step_time = now;
+        }
+    }
+
+    fn update(&mut self, dt: f64) {
+        self.enemy.update(&self.map, &self.player, dt);
+    }
+    
+    fn render(&self, window: &mut Window) {
+        let mut buffer = self.renderer.render_3d(&self.map, &self.player);
+        self.renderer.render_minimap(&self.map, &self.player, &self.enemy, &mut buffer);
+        self.enemy.render(&mut buffer, self.renderer.width, self.renderer.height, &self.player);
+        self.ui.render_fps(self.fps, &mut buffer, self.renderer.width);
+        window.update_with_buffer(&buffer, self.renderer.width, self.renderer.height).unwrap();
+    }
+   
+    fn show_welcome_screen(&mut self, window: &mut Window) {
+        self.ui.show_welcome_screen(window);
+        if window.is_key_down(Key::Space) {
+            self.current_state = State::Playing;
+            self.audio.play_background_music("assets/nobodynocrimets.mp3");
         }
     }
 
     fn play(&mut self, window: &mut Window) {
         let frame_start = Instant::now();
         let dt = frame_start.duration_since(self.last_frame_time).as_secs_f64();
-
+    
         self.handle_input(window, dt);
         self.update(dt);
         self.render(window);
-
-        // Update FPS
+    
         self.fps_counter += 1;
         if frame_start.duration_since(self.last_frame_time) >= Duration::from_secs(1) {
             self.fps = self.fps_counter;
             self.fps_counter = 0;
             self.last_frame_time = frame_start;
         }
-
-        // Check win/lose conditions
+    
         if self.map.is_player_at_goal(&self.player) {
             self.current_state = State::Victory;
         } else if self.enemy.has_caught_player(&self.player) {
             self.current_state = State::GameOver;
         }
-
+    
         self.last_frame_time = frame_start;
     }
-
-    fn handle_input(&mut self, window: &mut Window, dt: f64) {
-        let mut moved = false;
     
-        if window.is_key_down(Key::W) {
-            self.player.move_forward(&self.map);
-            moved = true;
-        }
-        if window.is_key_down(Key::S) {
-            self.player.move_backward(&self.map);
-            moved = true;
-        }
-        if window.is_key_down(Key::A) {
-            self.player.strafe_left(&self.map);
-            moved = true;
-        }
-        if window.is_key_down(Key::D) {
-            self.player.strafe_right(&self.map);
-            moved = true;
-        }
-    
-        // Mouse rotation
-        if let Some((x, _)) = window.get_mouse_pos(minifb::MouseMode::Discard) {
-            let center_x = (WIDTH / 2) as f64;
-            let dx = x as f64 - center_x;
-            self.player.rotate_by_mouse(dx);
-        }
-    
-        self.player.update(dt);
-    
-        // Play footstep sound
-        let now = Instant::now();
-        if moved && now.duration_since(self.last_step_time) >= Duration::from_millis(500) {
-            self.audio.play_footstep();
-            self.last_step_time = now;
-        }
-    }
-    
-    fn update(&mut self, dt: f64) {
-        self.enemy.update(&self.map, &self.player, dt);
-    }
-
-    fn render(&self, window: &mut Window) {
-        let mut buffer = self.renderer.render_3d(&self.map, &self.player);
-        self.renderer.render_minimap(&self.map, &self.player, &self.enemy, &mut buffer);
-
-        // Render the enemy
-        self.enemy.render(window, &mut buffer, WIDTH, HEIGHT);
-
-        self.ui.render_fps(self.fps, &mut buffer, WIDTH);
-        window.update_with_buffer(&buffer, WIDTH, HEIGHT).unwrap();
-    }
-
-    fn show_welcome_screen(&mut self, window: &mut Window) {
-        self.ui.show_welcome_screen(window);
-        self.current_state = State::Playing;
-        self.audio.play_background_music("assets/nobodynocrimets.mp3");
-    }
-
     fn show_victory_screen(&mut self, window: &mut Window) {
+        if !self.victory_sound_played {
+            self.audio.play_victory();
+            self.victory_sound_played = true;
+        }
         self.ui.show_victory_screen(window);
         if window.is_key_down(Key::Space) {
             self.reset_game();
         }
     }
-
+    
     fn show_game_over_screen(&mut self, window: &mut Window) {
+        if !self.game_over_sound_played {
+            self.audio.play_game_over();
+            self.game_over_sound_played = true;
+        }
         self.ui.show_game_over_screen(window);
         if window.is_key_down(Key::Space) {
             self.reset_game();
         }
     }
 
+
     fn reset_game(&mut self) {
         self.player = Player::new(&self.map);
         self.enemy = Enemy::new(&self.map);
         self.current_state = State::Playing;
+        self.victory_sound_played = false;
+        self.game_over_sound_played = false;
     }
 }
 

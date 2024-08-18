@@ -40,8 +40,9 @@ impl UI {
 
     pub fn render_fps(&self, fps: u32, buffer: &mut Vec<u32>, width: usize) {
         let fps_text = format!("FPS: {}", fps);
-        self.draw_text(buffer, width, &fps_text, 10, 20, 0xFFFFFF);
+        self.draw_text(buffer, width, &fps_text, width - 80, 20, 0xFFFFFF);
     }
+
 
     fn draw_image(&self, buffer: &mut Vec<u32>, width: usize, image: &RgbaImage) {
         for (x, y, pixel) in image.enumerate_pixels() {

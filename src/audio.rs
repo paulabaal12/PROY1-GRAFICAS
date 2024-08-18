@@ -29,7 +29,6 @@ impl AudioManager {
         self.sink.set_volume(0.5);
         self.sink.play();
     }
-
     pub fn play_victory(&self) {
         let file = BufReader::new(File::open("assets/victory.mp3").unwrap());
         let source = Decoder::new(file).unwrap();
@@ -44,5 +43,7 @@ impl AudioManager {
         self.sink.append(source);
         self.sink.set_volume(0.5);
         self.sink.play();
+        
     }
+
 }
