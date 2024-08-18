@@ -7,12 +7,16 @@ pub struct Map {
 
 impl Map {
     pub fn load(filename: &str) -> Self {
-        let file = File::open(filename).expect("Failed to open map file");
-        let reader = BufReader::new(file);
-        let data = reader.lines()
-            .map(|line| line.unwrap().chars().collect())
-            .collect();
-        Map { data }
+        match File::open(filename) {
+            Ok(file) => {
+                let reader = BufReader::new(file);
+                let data = reader.lines()
+                    .map(|line| line.unwrap().chars().collect())
+                    .collect();
+                Map { data }
+            },
+            Err(e) => panic!("Failed to open map file '{}': {}", filename, e),
+        }
     }
 
     pub fn is_wall(&self, x: f64, y: f64) -> bool {

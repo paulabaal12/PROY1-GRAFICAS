@@ -1,6 +1,7 @@
+use image::{DynamicImage, GenericImageView, RgbaImage, Rgba};
 use crate::map::Map;
 use crate::player::Player;
-use image::{DynamicImage, GenericImageView}; 
+use glam::Vec2;
 
 pub struct Enemy {
     pub x: f64,
@@ -12,63 +13,48 @@ pub struct Enemy {
 impl Enemy {
     pub fn new(map: &Map) -> Self {
         let (x, y) = map.find_enemy_start();
-        let texture = image::open("assets/enemy.png").unwrap();
-        let speed = 0.1;
-    
+        let texture = match image::open("assets/enemy.png") {
+            Ok(img) => img,
+            Err(e) => {
+                println!("Error loading enemy texture: {:?}", e);
+                DynamicImage::new_rgba8(0, 0)
+            }
+        };
+        let speed = 0.0;
+        
         Enemy { x, y, texture, speed }
     }
     
 
-    pub fn update(&mut self, map: &Map, player: &Player, dt: f64) {
-        let dx = player.x - self.x;
-        let dy = player.y - self.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-
-        if distance > 0.0 {
-            let move_x = dx / distance * self.speed * dt;
-            let move_y = dy / distance * self.speed * dt;
-
-            let new_x = self.x + move_x;
-            let new_y = self.y + move_y;
-
-            if !map.is_wall(new_x, new_y) {
-                self.x = new_x;
-                self.y = new_y;
-            }
-        }
+    pub fn update(&mut self, _map: &Map, _player: &Player, _dt: f64) {
+        
     }
-    
+
     pub fn has_caught_player(&self, player: &Player) -> bool {
-        let dx = self.x - player.x;
-        let dy = self.y - player.y;
-        let distance = (dx * dx + dy * dy).sqrt();
-        distance < 0.5 // Ajusta este valor según sea necesario
+        let distance = ((self.x - player.x).powi(2) + (self.y - player.y).powi(2)).sqrt();
+        distance < 0.3 
     }
+    pub fn render(&self, buffer: &mut Vec<u32>, width: usize, height: usize, _player: &Player, _z_buffer: &[f64]) {
+        let (tex_width, tex_height) = self.texture.dimensions();
+        let texture = self.texture.to_rgba8();
     
-    pub fn render(&self, buffer: &mut Vec<u32>, width: usize, height: usize, player: &Player) {
-        let dx = self.x - player.x;
-        let dy = self.y - player.y;
-        let distance = (dx * dx + dy * dy).sqrt();
+        let center_x = (self.x * width as f64) as i32;
+        let center_y = (self.y * height as f64) as i32;
     
-        if distance < 5.0 {  // Solo renderiza si está cerca del jugador
-            let angle = dy.atan2(dx) - player.angle;
-            let size = (height as f64 / distance).min(height as f64) as usize;
-            let x = ((angle.sin() + 1.0) * width as f64 / 2.0) as usize;
+        for y in 0..tex_height {
+            for x in 0..tex_width {
+                let pixel = texture.get_pixel(x, y);
+                let tx = center_x + x as i32 - tex_width as i32 / 2;
+                let ty = center_y + y as i32 - tex_height as i32 / 2;
     
-            let (enemy_width, enemy_height) = self.texture.dimensions();
-            for y in 0..size {
-                for dx in 0..size {
-                    let texture_x = (dx as f64 / size as f64 * enemy_width as f64) as u32;
-                    let texture_y = (y as f64 / size as f64 * enemy_height as f64) as u32;
-                    let color = self.texture.get_pixel(texture_x, texture_y);
-                    let buffer_x = x + dx;
-                    let buffer_y = height / 2 + y - size / 2;
-                    if buffer_x < width && buffer_y < height && color[3] > 0 {  
-                        let index = buffer_y * width + buffer_x;
-                        buffer[index] = ((color[3] as u32) << 24) | ((color[0] as u32) << 16) | ((color[1] as u32) << 8) | (color[2] as u32);
+                if tx >= 0 && tx < width as i32 && ty >= 0 && ty < height as i32 {
+                    let index = (ty as usize * width + tx as usize) as usize;
+                    if pixel[3] > 0 { 
+                        let color = u32::from_be_bytes([pixel[0], pixel[1], pixel[2], pixel[3]]);
+                        buffer[index] = color;
                     }
                 }
             }
         }
     }
-}
+}    

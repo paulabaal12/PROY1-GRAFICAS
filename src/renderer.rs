@@ -87,8 +87,7 @@ impl Renderer {
         (r << 16) | (g << 8) | b
     }
 
-    pub fn render_3d(&self, map: &Map, player: &Player) -> Vec<u32> {
-        let mut buffer = vec![0; self.width * self.height];
+    pub fn render_3d(&self, map: &Map, player: &Player, buffer: &mut Vec<u32>, z_buffer: &mut Vec<f64>) {
         let sky_top = 0x20586d;
         let sky_bottom = 0x9ea2ac;
     
@@ -100,9 +99,7 @@ impl Renderer {
             let wall_top = (self.height / 2).saturating_sub(wall_height / 2);
             let wall_bottom = (self.height / 2 + wall_height / 2).min(self.height);
     
-            let texture_u = wall_x; // Aquí wall_x es una coordenada en [0, 1]
-            let texture_step = 1.0 / wall_height as f64;
-            let mut texture_v = 0.0;
+            let texture_u = wall_x;
     
             for y in 0..self.height {
                 let pixel_index = y * self.width + x;
@@ -114,14 +111,13 @@ impl Renderer {
                     let color = self.sample_texture(texture_u, v);
                     let shade_factor = 1.0 / (1.0 + distance * distance * 0.1);
                     buffer[pixel_index] = self.apply_shade(color, shade_factor);
-                    texture_v += texture_step;
+                    z_buffer[pixel_index] = distance;
                 } else {
                     let t = (y - wall_bottom) as f64 / (self.height - wall_bottom) as f64;
                     buffer[pixel_index] = self.color_lerp(0x0d798f, 0x051744, t);
                 }
             }
         }
-        buffer
     }
     
     
