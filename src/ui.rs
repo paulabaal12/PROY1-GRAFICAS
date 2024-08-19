@@ -42,15 +42,34 @@ impl UI {
         let fps_text = format!("FPS: {}", fps);
         let text_color = 0xFFFFFF; 
         let background_color = 0x000000; 
+        let scale = 2; // Aumenta este valor para hacer el texto más grande
     
-        let x = width - (fps_text.len() * 8) - 10; 
+        let x = width - (fps_text.len() * 8 * scale) - 10; 
         let y = 10; 
     
         for (i, c) in fps_text.chars().enumerate() {
-            self.draw_char(buffer, width, c, x + i * 8, y, text_color, background_color);
+            self.draw_char_scaled(buffer, width, c, x + i * 8 * scale, y, text_color, background_color, scale);
         }
     }
-
+    
+    fn draw_char_scaled(&self, buffer: &mut [u32], width: usize, c: char, x: usize, y: usize, color: u32, bg_color: u32, scale: usize) {
+        let font_char = get_font_data(c);
+        for (dy, &row) in font_char.iter().enumerate() {
+            for dx in 0..8 {
+                for sy in 0..scale {
+                    for sx in 0..scale {
+                        let pixel_x = x + dx * scale + sx;
+                        let pixel_y = y + dy * scale + sy;
+                        let index = pixel_y * width + pixel_x;
+                        if index < buffer.len() {
+                            buffer[index] = if (row & (1 << (7 - dx))) != 0 { color } else { bg_color };
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
     fn draw_char(&self, buffer: &mut [u32], width: usize, c: char, x: usize, y: usize, color: u32, bg_color: u32) {
         let font_char = get_font_data(c);
         for (dy, &row) in font_char.iter().enumerate() {
