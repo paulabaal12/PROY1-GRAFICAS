@@ -39,7 +39,6 @@ impl Enemy {
         let dx = self.x - player.x;
         let dy = self.y - player.y;
         
-        // Calculate distance and angle to player
         let distance = (dx * dx + dy * dy).sqrt();
         let angle = dy.atan2(dx) - player.angle;
         
